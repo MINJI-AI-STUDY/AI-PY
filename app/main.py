@@ -1,12 +1,14 @@
 from fastapi import FastAPI
 
 from app.config import settings
-from app.schemas import ExtractRequest, ExtractResponse
+from app.schemas import ExtractRequest, ExtractResponse, GenerateQuestionsRequest, GenerateQuestionsResponse
 from app.services.material_extraction import MaterialExtractionService
+from app.services.question_generation import QuestionGenerationService
 
 
 app = FastAPI(title="AI-STUDY AI-PY", version="0.1.0")
 material_extraction_service = MaterialExtractionService()
+question_generation_service = QuestionGenerationService()
 
 
 @app.get("/health")
@@ -24,3 +26,13 @@ def extract_material(request: ExtractRequest) -> ExtractResponse:
         filename=request.filename,
     )
     return ExtractResponse(extractedText=extracted_text, status="READY", chunkCount=chunk_count)
+
+
+@app.post("/generate-questions", response_model=GenerateQuestionsResponse)
+def generate_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsResponse:
+    """F3 객관식 문항 생성을 수행합니다."""
+    questions = question_generation_service.generate(
+        material_title=request.material_title,
+        question_count=request.question_count,
+    )
+    return GenerateQuestionsResponse(questions=questions)

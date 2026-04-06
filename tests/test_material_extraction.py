@@ -27,3 +27,17 @@ def test_extract_material_returns_ready_with_chunk_count() -> None:
     assert payload["status"] == "READY"
     assert payload["chunkCount"] >= 1
     assert "수업 자료" in payload["extractedText"]
+
+
+def test_generate_questions_returns_requested_count() -> None:
+    response = client.post(
+        "/generate-questions",
+        json={
+            "material_title": "수업 자료",
+            "question_count": 3,
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["questions"]) == 3
+    assert all(len(question["options"]) == 4 for question in payload["questions"])
