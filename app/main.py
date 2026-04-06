@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.config import settings
 from app.schemas import ExtractRequest, ExtractResponse
 from app.services.material_extraction import MaterialExtractionService
 
@@ -11,7 +12,7 @@ material_extraction_service = MaterialExtractionService()
 @app.get("/health")
 def health() -> dict[str, str]:
     """AI 서비스 상태를 반환합니다."""
-    return {"status": "ok", "service": "ai-py", "port": "8000"}
+    return {"status": "ok", "service": "ai-py", "port": str(settings.ai_port)}
 
 
 @app.post("/extract-material", response_model=ExtractResponse)

@@ -10,6 +10,7 @@ def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.json()["port"] == "8000"
 
 
 def test_extract_material_returns_ready_with_chunk_count() -> None:
