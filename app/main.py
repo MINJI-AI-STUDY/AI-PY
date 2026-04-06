@@ -1,14 +1,16 @@
 from fastapi import FastAPI
 
 from app.config import settings
-from app.schemas import ExtractRequest, ExtractResponse, GenerateQuestionsRequest, GenerateQuestionsResponse
+from app.schemas import ExtractRequest, ExtractResponse, GenerateQuestionsRequest, GenerateQuestionsResponse, QaRequest, QaResponse
 from app.services.material_extraction import MaterialExtractionService
 from app.services.question_generation import QuestionGenerationService
+from app.services.qa_service import QaService
 
 
 app = FastAPI(title="AI-STUDY AI-PY", version="0.1.0")
 material_extraction_service = MaterialExtractionService()
 question_generation_service = QuestionGenerationService()
+qa_service = QaService()
 
 
 @app.get("/health")
@@ -36,3 +38,9 @@ def generate_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsRe
         question_count=request.question_count,
     )
     return GenerateQuestionsResponse(questions=questions)
+
+
+@app.post("/qa", response_model=QaResponse)
+def qa(request: QaRequest) -> QaResponse:
+    """F6 자료 기반 질문 응답을 반환합니다."""
+    return qa_service.ask(request.question)
