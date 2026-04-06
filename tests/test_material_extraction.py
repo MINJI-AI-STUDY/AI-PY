@@ -41,3 +41,24 @@ def test_generate_questions_returns_requested_count() -> None:
     payload = response.json()
     assert len(payload["questions"]) == 3
     assert all(len(question["options"]) == 4 for question in payload["questions"])
+
+
+def test_qa_returns_fallback_shape(monkeypatch) -> None:
+    from app.main import qa_service
+
+    monkeypatch.setattr(
+        qa_service,
+        "ask",
+        lambda question: {
+            "answer": "자료 기준 기본 답변입니다: 핵심 개념이 뭐야?",
+            "evidenceSnippets": ["자료 핵심 개념 설명"],
+            "grounded": True,
+            "insufficientEvidence": False,
+        },
+    )
+
+    response = client.post("/qa", json={"question": "핵심 개념이 뭐야?"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["grounded"] is True
+    assert payload["answer"]

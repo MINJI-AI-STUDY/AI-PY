@@ -28,3 +28,14 @@ class GeneratedQuestion(BaseModel):
 
 class GenerateQuestionsResponse(BaseModel):
     questions: list[GeneratedQuestion]
+
+
+class QaRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+
+
+class QaResponse(BaseModel):
+    answer: str
+    evidenceSnippets: list[str]
+    grounded: bool
+    insufficientEvidence: bool
