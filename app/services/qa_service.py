@@ -12,11 +12,15 @@ from app.schemas import QaResponse
 
 
 class QaService:
+    REQUIRED_SECTIONS = ("[답변]", "[근거 요약]", "[판단]")
+    DOMAIN_HINTS = {"자료", "문서", "문항", "수학", "지수", "로그", "함수", "문제", "해설", "개념", "채널", "학습", "교사", "학생", "pdf"}
+
     def __init__(self) -> None:
         self._llm = None
         self._embeddings = None
         if settings.google_api_key:
             google_api_key = settings.google_api_key.get_secret_value()
+            google_api_key_secret = settings.google_api_key
             self._llm = ChatGoogleGenerativeAI(
                 model="gemini-2.5-flash",
                 google_api_key=google_api_key,
@@ -24,7 +28,7 @@ class QaService:
             )
             self._embeddings = GoogleGenerativeAIEmbeddings(
                 model="models/text-embedding-004",
-                google_api_key=google_api_key,
+                google_api_key=google_api_key_secret,
                 task_type="RETRIEVAL_DOCUMENT",
             )
         else:
@@ -59,6 +63,20 @@ class QaService:
     def ask(self, context: str, user_question: str) -> QaResponse:
         """F6 질의응답을 수행하고 실패 시 fallback 응답을 반환합니다."""
         snippets = self._retrieve_snippets(context, user_question)
+        if self._is_out_of_domain(user_question, snippets):
+            return QaResponse(
+                answer=(
+                    "[답변]\n"
+                    "- 현재 업로드된 문서와 학습 도메인 안에서만 답변할 수 있습니다.\n\n"
+                    "[근거 요약]\n"
+                    "- 질문이 현재 문서의 핵심 내용과 직접 연결되지 않아 답변 근거를 찾지 못했습니다.\n\n"
+                    "[판단]\n"
+                    "- 자료에서 직접적인 근거를 찾기 어렵습니다."
+                ),
+                evidenceSnippets=[],
+                grounded=False,
+                insufficientEvidence=True,
+            )
 
         if self._llm is None:
             return self._fallback(user_question, snippets)
@@ -66,7 +84,7 @@ class QaService:
         try:
             prompt = self._prompt.format(context="\n\n".join(snippets), question=user_question)
             result = self._llm.invoke(prompt)
-            answer = str(getattr(result, "content", result)).strip()
+            answer = self._normalize_answer(str(getattr(result, "content", result)).strip(), snippets, user_question)
             insufficient = "자료에서 직접적인 근거를 찾기 어렵습니다." in answer
             if insufficient:
                 return QaResponse(answer=answer, evidenceSnippets=[], grounded=False, insufficientEvidence=True)
@@ -104,6 +122,17 @@ class QaService:
     def _normalize_chunk(self, chunk: str) -> str:
         return re.sub(r"\s+", " ", chunk).strip()
 
+    def _is_out_of_domain(self, user_question: str, snippets: list[str]) -> bool:
+        lowered_question = user_question.lower()
+        query_terms = {term for term in re.findall(r"[가-힣A-Za-z0-9·]{2,}", lowered_question) if len(term) >= 2}
+        if not query_terms:
+            return True
+
+        joined = " ".join(snippets).lower()
+        overlap = sum(1 for term in query_terms if term in joined)
+        has_question_domain_hint = any(hint in lowered_question for hint in self.DOMAIN_HINTS)
+        return overlap == 0 and not has_question_domain_hint
+
     def _fallback(self, user_question: str, snippets: list[str]) -> QaResponse:
         supporting_sentences = self._select_supporting_sentences(snippets, user_question)
         summary_lines = [f"- {sentence}" for sentence in supporting_sentences[: settings.rag_top_k]]
@@ -123,6 +152,29 @@ class QaService:
             grounded=grounded,
             insufficientEvidence=not grounded,
         )
+
+    def _normalize_answer(self, answer: str, snippets: list[str], user_question: str) -> str:
+        normalized = answer.strip()
+        if self._has_required_sections(normalized):
+            return normalized
+
+        supporting_sentences = self._select_supporting_sentences(snippets, user_question)
+        grounded = bool(supporting_sentences)
+        summary_lines = [f"- {sentence}" for sentence in supporting_sentences[: settings.rag_top_k]]
+        summary = "\n".join(summary_lines) if summary_lines else "- 자료에서 직접적인 근거를 찾기 어렵습니다."
+        answer_line = supporting_sentences[0] if supporting_sentences else normalized or f"자료에서 직접적인 근거를 찾기 어렵습니다: {user_question}"
+        judgement = "자료 근거로 답변함" if grounded else "자료에서 직접적인 근거를 찾기 어렵습니다."
+        return (
+            "[답변]\n"
+            f"- {answer_line}\n\n"
+            "[근거 요약]\n"
+            f"{summary}\n\n"
+            "[판단]\n"
+            f"- {judgement}"
+        )
+
+    def _has_required_sections(self, answer: str) -> bool:
+        return all(section in answer for section in self.REQUIRED_SECTIONS)
 
     def _select_supporting_sentences(self, snippets: list[str], user_question: str) -> list[str]:
         query_terms = set(re.findall(r"[가-힣A-Za-z0-9·]{2,}", user_question))
