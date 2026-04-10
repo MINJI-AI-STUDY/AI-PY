@@ -43,7 +43,7 @@ def generate_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsRe
 
 
 @app.post("/qa", response_model=QaResponse)
-def qa(request: dict) -> QaResponse:
+def qa(request: dict[str, object]) -> QaResponse:
     """F6 자료 기반 질문 응답을 반환합니다."""
     question = str(request.get("question", "")).strip()
     raw_context = request.get("context", "")
