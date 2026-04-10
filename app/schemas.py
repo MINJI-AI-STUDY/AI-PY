@@ -5,6 +5,7 @@ class ExtractRequest(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     description: str = Field(default="", max_length=300)
     filename: str = Field(min_length=1, max_length=255)
+    pdfBase64: str | None = None
 
 
 class ExtractResponse(BaseModel):
@@ -15,6 +16,7 @@ class ExtractResponse(BaseModel):
 
 class GenerateQuestionsRequest(BaseModel):
     material_title: str = Field(min_length=1, max_length=100)
+    material_text: str = Field(min_length=1, max_length=20000)
     question_count: int = Field(ge=1, le=10)
 
 
@@ -31,7 +33,8 @@ class GenerateQuestionsResponse(BaseModel):
 
 
 class QaRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=4000)
+    question: str = Field(min_length=1, max_length=500)
+    context: str = Field(min_length=1, max_length=20000)
 
 
 class QaResponse(BaseModel):

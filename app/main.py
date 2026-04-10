@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from app.config import settings
-from app.schemas import ExtractRequest, ExtractResponse, GenerateQuestionsRequest, GenerateQuestionsResponse, QaRequest, QaResponse
+from app.schemas import ExtractRequest, ExtractResponse, GenerateQuestionsRequest, GenerateQuestionsResponse, QaResponse
 from app.services.material_extraction import MaterialExtractionService
 from app.services.question_generation import QuestionGenerationService
 from app.services.qa_service import QaService
@@ -26,6 +26,7 @@ def extract_material(request: ExtractRequest) -> ExtractResponse:
         title=request.title,
         description=request.description,
         filename=request.filename,
+        pdf_base64=request.pdfBase64,
     )
     return ExtractResponse(extractedText=extracted_text, status="READY", chunkCount=chunk_count)
 
@@ -35,12 +36,19 @@ def generate_questions(request: GenerateQuestionsRequest) -> GenerateQuestionsRe
     """F3 객관식 문항 생성을 수행합니다."""
     questions = question_generation_service.generate(
         material_title=request.material_title,
+        material_text=request.material_text,
         question_count=request.question_count,
     )
     return GenerateQuestionsResponse(questions=questions)
 
 
 @app.post("/qa", response_model=QaResponse)
-def qa(request: QaRequest) -> QaResponse:
+def qa(request: dict[str, object]) -> QaResponse:
     """F6 자료 기반 질문 응답을 반환합니다."""
-    return qa_service.ask(request.question)
+    question = str(request.get("question", "")).strip()
+    raw_context = request.get("context", "")
+    if isinstance(raw_context, list):
+        context = " ".join(str(item) for item in raw_context)
+    else:
+        context = str(raw_context)
+    return qa_service.ask(context, question)
