@@ -59,13 +59,13 @@ def qa(request: dict[str, object]) -> QaResponse:
         context = str(raw_context)
     if not question:
         logger.warning("QA 요청 누락: question이 비어 있음")
-        return QaResponse(answer="질문을 입력해주세요.", evidenceSnippets=[], grounded=False, insufficientEvidence=True)
+        return QaResponse(answer="질문을 입력해 주시면 도움을 드릴게요.", evidenceSnippets=[], grounded=False, insufficientEvidence=True)
     try:
         return qa_service.ask(context, question)
     except Exception as e:
         logger.error("QA 처리 중 예외 발생: %s", e, exc_info=True)
         return QaResponse(
-            answer="AI 응답 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+            answer="답변을 준비하던 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
             evidenceSnippets=[],
             grounded=False,
             insufficientEvidence=False,

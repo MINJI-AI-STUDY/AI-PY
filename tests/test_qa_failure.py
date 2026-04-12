@@ -37,7 +37,7 @@ class TestQaConnectivityFailure:
         payload = response.json()
         assert payload["grounded"] is False
         assert payload["insufficientEvidence"] is False
-        assert "오류가 발생했습니다" in payload["answer"]
+        assert "문제가 생겼어요" in payload["answer"]
 
     def test_qa_endpoint_empty_question_returns_insufficient_evidence(self):
         """Empty question should return insufficientEvidence=True (user error, not service error)."""
@@ -49,7 +49,7 @@ class TestQaConnectivityFailure:
         payload = response.json()
         assert payload["grounded"] is False
         assert payload["insufficientEvidence"] is True
-        assert "질문을 입력해주세요" in payload["answer"]
+        assert "질문을 입력해 주시면" in payload["answer"]
 
 
 class TestQaInsufficientEvidence:

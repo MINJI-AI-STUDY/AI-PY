@@ -39,21 +39,20 @@ class QaService:
         self._splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=120)
         self._prompt = PromptTemplate.from_template(
             """
-            너는 교육용 자료 기반 질의응답 도우미다.
-            아래 검색된 근거 조각만 사용해서 답하라.
-            답변은 반드시 아래 형식을 지켜라.
-
+            너는 학생을 돕는 친절한 교육 도우미야.
+            아래 검색된 근거 조각을 바탕으로, 학생이 이해하기 쉽게 답해줘.
+            답변은 아래 형식을 따라줘.
             [답변]
-            - 질문에 대한 핵심 답을 1~3문장으로 쓴다.
+            - 학생의 질문에 대해 핵심을 1~3문장으로 친절하게 설명해줘.
 
             [근거 요약]
-            - 근거 조각에서 확인되는 사실만 bullet 1~3개로 쓴다.
+            - 근거에서 확인할 수 있는 사실을 bullet 1~3개로 정리해줘.
 
             [판단]
-            - 충분한 근거가 있으면 '자료 근거로 답변함'
-            - 부족하면 '자료에서 직접적인 근거를 찾기 어렵습니다.'
+            - 충분한 근거가 있으면 '자료 근거로 설명해드렸어요'
+            - 부족하면 '자료에서 바로 확인할 수 있는 근거가 아직 부족해요.'
 
-            절대 자료에 없는 내용을 추측해서 쓰지 마라.
+            자료에 없는 내용은 추측하지 말고, 솔직하게 근거가 부족하다고 알려줘.
 
             근거:
             {context}
@@ -70,11 +69,11 @@ class QaService:
             return QaResponse(
                 answer=(
                     "[답변]\n"
-                    "- 현재 업로드된 문서와 학습 도메인 안에서만 답변할 수 있습니다.\n\n"
+                    "- 현재 올려주신 학습 자료 범위 안에서 답변을 드릴 수 있어요. 다른 주제에 대해서는 아직 도움을 드리기 어렵습니다.\n"
                     "[근거 요약]\n"
-                    "- 질문이 현재 문서의 핵심 내용과 직접 연결되지 않아 답변 근거를 찾지 못했습니다.\n\n"
+                    "- 질문하신 내용이 현재 학습 자료와 직접 연결되지 않아, 관련 근거를 찾기 어려웠어요.\n"
                     "[판단]\n"
-                    "- 자료에서 직접적인 근거를 찾기 어렵습니다."
+                    "- 자료에서 바로 확인할 수 있는 근거가 아직 부족해요."
                 ),
                 evidenceSnippets=[],
                 grounded=False,
@@ -88,7 +87,7 @@ class QaService:
             prompt = self._prompt.format(context="\n\n".join(snippets), question=user_question)
             result = self._llm.invoke(prompt)
             answer = self._normalize_answer(str(getattr(result, "content", result)).strip(), snippets, user_question)
-            insufficient = "자료에서 직접적인 근거를 찾기 어렵습니다." in answer
+            insufficient = "자료에서 바로 확인할 수 있는 근거가 아직 부족해요." in answer
             if insufficient:
                 return QaResponse(answer=answer, evidenceSnippets=[], grounded=False, insufficientEvidence=True)
             return QaResponse(answer=answer, evidenceSnippets=snippets[: settings.rag_top_k], grounded=True, insufficientEvidence=False)
@@ -141,8 +140,8 @@ class QaService:
     def _fallback(self, user_question: str, snippets: list[str]) -> QaResponse:
         supporting_sentences = self._select_supporting_sentences(snippets, user_question)
         summary_lines = [f"- {sentence}" for sentence in supporting_sentences[: settings.rag_top_k]]
-        summary = "\n".join(summary_lines) if summary_lines else "- 자료에서 직접적인 근거를 찾기 어렵습니다."
-        answer_line = supporting_sentences[0] if supporting_sentences else f"자료에서 직접적인 근거를 찾기 어렵습니다: {user_question}"
+        summary = "\n".join(summary_lines) if summary_lines else "- 자료에서 바로 확인할 수 있는 근거가 아직 부족해요."
+        answer_line = supporting_sentences[0] if supporting_sentences else f"자료에서 바로 확인할 수 있는 근거가 아직 부족해요: {user_question}"
         grounded = bool(supporting_sentences)
         return QaResponse(
             answer=(
@@ -151,7 +150,7 @@ class QaService:
                 "[근거 요약]\n"
                 f"{summary}\n\n"
                 "[판단]\n"
-                f"- {'자료 근거로 답변함' if grounded else '자료에서 직접적인 근거를 찾기 어렵습니다.'}"
+                f"- {'자료 근거로 설명해드렸어요' if grounded else '자료에서 바로 확인할 수 있는 근거가 아직 부족해요.'}"
             ),
             evidenceSnippets=snippets[: settings.rag_top_k],
             grounded=grounded,
@@ -166,9 +165,9 @@ class QaService:
         supporting_sentences = self._select_supporting_sentences(snippets, user_question)
         grounded = bool(supporting_sentences)
         summary_lines = [f"- {sentence}" for sentence in supporting_sentences[: settings.rag_top_k]]
-        summary = "\n".join(summary_lines) if summary_lines else "- 자료에서 직접적인 근거를 찾기 어렵습니다."
-        answer_line = supporting_sentences[0] if supporting_sentences else normalized or f"자료에서 직접적인 근거를 찾기 어렵습니다: {user_question}"
-        judgement = "자료 근거로 답변함" if grounded else "자료에서 직접적인 근거를 찾기 어렵습니다."
+        summary = "\n".join(summary_lines) if summary_lines else "- 자료에서 바로 확인할 수 있는 근거가 아직 부족해요."
+        answer_line = supporting_sentences[0] if supporting_sentences else normalized or f"자료에서 바로 확인할 수 있는 근거가 아직 부족해요: {user_question}"
+        judgement = "자료 근거로 설명해드렸어요" if grounded else "자료에서 바로 확인할 수 있는 근거가 아직 부족해요."
         return (
             "[답변]\n"
             f"- {answer_line}\n\n"
