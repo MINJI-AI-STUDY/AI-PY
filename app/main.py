@@ -1,10 +1,16 @@
+import logging
+
 from fastapi import FastAPI
+import uvicorn
 
 from app.config import settings
 from app.schemas import ExtractRequest, ExtractResponse, GenerateQuestionsRequest, GenerateQuestionsResponse, QaResponse
 from app.services.material_extraction import MaterialExtractionService
 from app.services.question_generation import QuestionGenerationService
 from app.services.qa_service import QaService
+
+
+logger = logging.getLogger(__name__)
 
 
 app = FastAPI(title="AI-STUDY AI-PY", version="0.1.0")
@@ -51,4 +57,20 @@ def qa(request: dict[str, object]) -> QaResponse:
         context = " ".join(str(item) for item in raw_context)
     else:
         context = str(raw_context)
-    return qa_service.ask(context, question)
+    if not question:
+        logger.warning("QA 요청 누락: question이 비어 있음")
+        return QaResponse(answer="질문을 입력해주세요.", evidenceSnippets=[], grounded=False, insufficientEvidence=True)
+    try:
+        return qa_service.ask(context, question)
+    except Exception as e:
+        logger.error("QA 처리 중 예외 발생: %s", e, exc_info=True)
+        return QaResponse(
+            answer="AI 응답 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+            evidenceSnippets=[],
+            grounded=False,
+            insufficientEvidence=False,
+        )
+
+
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.ai_port)
