@@ -16,3 +16,4 @@
 10. `07_정책/README.md`
 11. `08_의사결정기록/README.md`
 12. `09_계획/README.md`
+13. `10_운영/README.md`
