@@ -1,3 +1,4 @@
+import logging
 import re
 
 from langchain_core.documents import Document
@@ -9,6 +10,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import settings
 from app.schemas import QaResponse
+
+logger = logging.getLogger(__name__)
 
 
 class QaService:
@@ -90,6 +93,7 @@ class QaService:
                 return QaResponse(answer=answer, evidenceSnippets=[], grounded=False, insufficientEvidence=True)
             return QaResponse(answer=answer, evidenceSnippets=snippets[: settings.rag_top_k], grounded=True, insufficientEvidence=False)
         except Exception:
+            logger.error("LLM 호출 실패, fallback 응답 반환: question=%s", user_question, exc_info=True)
             return self._fallback(user_question, snippets)
 
     def _retrieve_snippets(self, context: str, user_question: str) -> list[str]:
@@ -108,6 +112,7 @@ class QaService:
             snippets = [document.page_content for document in retrieved if document.page_content]
             return snippets or normalized_chunks[: settings.rag_top_k]
         except Exception:
+            logger.warning("벡터 검색 실패, 어휘 검색으로 대체: %s", user_question, exc_info=True)
             return self._lexical_retrieve(normalized_chunks, user_question)
 
     def _lexical_retrieve(self, chunks: list[str], user_question: str) -> list[str]:
